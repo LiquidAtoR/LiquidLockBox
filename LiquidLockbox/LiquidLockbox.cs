@@ -6,6 +6,9 @@
  * There should be no event where it tries to open a lockbox without skillz.
  * I borrowed back from Bengal what he borrowed from me in the first place.
  * Bits of the code he changed I integrated here for ease of use.
+ * 
+ * 2013/18/06   v3.0.0.1
+ *               Streamlining for testing.
  *
  * 2012/10/08   v3.0.0.0
  *				Updated to new HB API.
@@ -56,7 +59,7 @@ namespace LiquidLockbox
     {
         public override string Name { get { return "LiquidLockbox"; } }
         public override string Author { get { return "LiquidAtoR"; } }
-        public override Version Version { get { return new Version(3,0,0,0); } }
+        public override Version Version { get { return new Version(3,0,0,1); } }
 
 		private bool _init;
         public override void Initialize()
@@ -115,17 +118,20 @@ namespace LiquidLockbox
 
         private static Stopwatch sw = new Stopwatch();
 
-
         public override void Pulse()
         {
 		if (_init)
 			{
-            if (StyxWoW.Me.IsActuallyInCombat
-                || StyxWoW.Me.Mounted
-                || StyxWoW.Me.IsDead
-                || StyxWoW.Me.IsGhost
-                //|| Styx.CommonBot.LootTargeting.LootMobs
-                ) {
+                if (Battlegrounds.IsInsideBattleground ||
+                    StyxWoW.Me.HasAura(1784) ||
+                    StyxWoW.Me.HasAura("Drink") ||
+                    StyxWoW.Me.HasAura("Food") ||
+					StyxWoW.Me.IsActuallyInCombat ||
+                    StyxWoW.Me.IsCasting ||
+					StyxWoW.Me.IsDead ||
+					StyxWoW.Me.IsGhost ||
+                    StyxWoW.Me.IsMoving ||
+                    StyxWoW.Me.Mounted) {
                 return;
             }
 
@@ -149,16 +155,16 @@ namespace LiquidLockbox
 									{
 										if ((lockpickSkill > l.Skill) && (item.StackCount >= 1))
 										{
-											while (StyxWoW.Me.IsCasting)
-											{
-												WoWMovement.MoveStop();
-												SpellManager.Cast(1804);
-												Lua.DoString("UseItemByName(\"" + item.Name + "\")");
-												Thread.Sleep(500);
-												Logging.Write(LogLevel.Normal, Colors.DarkRed, "[LiquidLockbox]: Unlocking and opening a {0}.", item.Name);
-												Lua.DoString("UseItemByName(\"" + item.Name + "\")");
-												StyxWoW.SleepForLagDuration();
-											}
+											SpellManager.Cast(1804);
+											Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+											StyxWoW.SleepForLagDuration();
+												while (StyxWoW.Me.IsCasting)
+												Thread.Sleep(50);
+											Logging.Write(LogLevel.Normal, Colors.DarkRed, "[LiquidLockbox]: Unlocking and opening a {0}.", item.Name);
+											Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+											StyxWoW.SleepForLagDuration();
+											Lua.DoString("RunMacroText(\"/click StaticPopup1Button1\");");
+											StyxWoW.SleepForLagDuration();
 										}
 									}
 									else
