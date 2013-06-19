@@ -1,12 +1,15 @@
 ﻿/*
- * LiquidLockbox v3.0.0.0 by LiquidAtoR
+ * LiquidLockbox v3.0.0.2 by LiquidAtoR
  * 
  * This is a little addon to open lockboxes in the char's inventory.
  * The skill of his lockpicking is compared to the skill needed for the box.
  * There should be no event where it tries to open a lockbox without skillz.
- * I borrowed back from Bengal what he borrowed from me in the first place.
- * Bits of the code he changed I integrated here for ease of use.
- * 
+ * I've completely overhauled the plugin to function like TidyBags.
+ * It should not attempt to open anything while stealthed, mounted or in a BG.
+ *
+ * 2013/20/06   v3.0.0.2
+ *               Final testing.
+ *
  * 2013/18/06   v3.0.0.1
  *               Streamlining for testing.
  *
@@ -59,15 +62,35 @@ namespace LiquidLockbox
     {
         public override string Name { get { return "LiquidLockbox"; } }
         public override string Author { get { return "LiquidAtoR"; } }
-        public override Version Version { get { return new Version(3,0,0,1); } }
-
+        public override Version Version { get { return new Version(3,0,0,2); } }
+		public bool InventoryCheck = false;
 		private bool _init;
+		
         public override void Initialize()
         {
             if (_init) return;
             base.Initialize();
+			Lua.DoString("SetCVar('AutoLootDefault','1')");
+			Lua.Events.AttachEvent("LOOT_CLOSED", LootFinished);
+			Lua.Events.AttachEvent("MAIL_CLOSED", MailboxFinished);
             Logging.Write(LogLevel.Normal, Colors.DarkRed, "LiquidLockbox 3.0 ready for use...");
             _init = true;
+        }
+			
+        private void LootFinished(object sender, LuaEventArgs args)
+        {
+            if (InventoryCheck == false)
+            {
+                InventoryCheck = true;
+            }
+        }
+		
+		private void MailboxFinished(object sender, LuaEventArgs args)
+        {
+            if (InventoryCheck == false)
+            {
+                InventoryCheck = true;
+            }
         }
 		
 		struct Lockbox
@@ -116,29 +139,20 @@ namespace LiquidLockbox
 				new Lockbox(88165, 450), //Vine-Cracked Junkbox (Skill 450)
 			};
 
-        private static Stopwatch sw = new Stopwatch();
-
         public override void Pulse()
         {
 		if (_init)
-			{
-                if (Battlegrounds.IsInsideBattleground ||
-                    StyxWoW.Me.HasAura(1784) ||
-                    StyxWoW.Me.HasAura("Drink") ||
-                    StyxWoW.Me.HasAura("Food") ||
-					StyxWoW.Me.IsActuallyInCombat ||
-                    StyxWoW.Me.IsCasting ||
-					StyxWoW.Me.IsDead ||
-					StyxWoW.Me.IsGhost ||
-                    StyxWoW.Me.IsMoving ||
-                    StyxWoW.Me.Mounted) {
+            if (StyxWoW.Me.IsActuallyInCombat
+				|| Battlegrounds.IsInsideBattleground
+				|| StyxWoW.Me.HasAura(1784) // Check if we are Stealthed
+                || StyxWoW.Me.Mounted
+                || StyxWoW.Me.IsDead
+                || StyxWoW.Me.IsGhost
+                ) {
                 return;
             }
 
-            if (!sw.IsRunning)
-                sw.Start();
-
-            if (sw.Elapsed.TotalSeconds > 1)
+            if (InventoryCheck) { // Loot Event has Finished
             {
 				var lockpickSkill = StyxWoW.Me.Level*5;
                 foreach (WoWItem item in ObjectManager.GetObjectsOfType<WoWItem>()) 
@@ -147,39 +161,37 @@ namespace LiquidLockbox
 					{
 						if (l.ID == item.Entry)
 						{
-							if (item != null)
-							{
-								if (item.BagSlot != -1)
-								{
-									if (StyxWoW.Me.FreeNormalBagSlots >= 2)
-									{
-										if ((lockpickSkill > l.Skill) && (item.StackCount >= 1))
-										{
-											SpellManager.Cast(1804);
-											Lua.DoString("UseItemByName(\"" + item.Name + "\")");
-											StyxWoW.SleepForLagDuration();
-												while (StyxWoW.Me.IsCasting)
-												Thread.Sleep(50);
-											Logging.Write(LogLevel.Normal, Colors.DarkRed, "[LiquidLockbox]: Unlocking and opening a {0}.", item.Name);
-											Lua.DoString("UseItemByName(\"" + item.Name + "\")");
-											StyxWoW.SleepForLagDuration();
-											Lua.DoString("RunMacroText(\"/click StaticPopup1Button1\");");
-											StyxWoW.SleepForLagDuration();
+							if (item != null && item.BagSlot != -1 && StyxWoW.Me.FreeNormalBagSlots >= 2) {
+										if (lockpickSkill > l.Skill && item.StackCount >= 1) {
+											this.pickLock(item);
 										}
 									}
-									else
-									{
-										Logging.Write(LogLevel.Normal, Colors.DarkRed, "[LiquidLockbox]: No Lockpicking because our free bag slots are less then 3.");
-									}
-								}
+								}	
 							}
 						}
-					}	
-                    sw.Reset();
-                    sw.Start();
-					}
-                }
-            }
-        }
-    }
+					InventoryCheck = false;
+					StyxWoW.SleepForLagDuration();
+				}
+			}
+		}
+		
+		private void pickLock(WoWItem item)
+		{	
+			Logging.Write(LogLevel.Normal, Colors.DarkRed, "[{0} {1}]: Lockpicking and Looting a {2} with ID {3}", this.Name, this.Version, item.Name, item.Guid);
+			if (SpellManager.HasSpell(1804))
+            {
+					SpellManager.Cast(1804);
+					StyxWoW.SleepForLagDuration();
+					Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+					StyxWoW.SleepForLagDuration();
+					StyxWoW.SleepForLagDuration();
+						while (StyxWoW.Me.IsCasting)
+							Thread.Sleep(50);
+					Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+					StyxWoW.SleepForLagDuration();
+					Lua.DoString("RunMacroText(\"/click StaticPopup1Button1\");");
+					StyxWoW.SleepForLagDuration();
+			}
+		}
+	}
 }
