@@ -1,11 +1,15 @@
 ﻿/*
- * LiquidLockbox v3.0.0.2 by LiquidAtoR
+ * LiquidLockbox v3.0.0.3 by LiquidAtoR
  * 
  * This is a little addon to open lockboxes in the char's inventory.
  * The skill of his lockpicking is compared to the skill needed for the box.
  * There should be no event where it tries to open a lockbox without skillz.
  * I've completely overhauled the plugin to function like TidyBags.
  * It should not attempt to open anything while stealthed, mounted or in a BG.
+ *
+ * 2013/29/06   v3.0.0.3
+ *               Comments in the file to explain it's working.
+ *               Moved a Lockpicking spell from the pick function to the init function.
  *
  * 2013/20/06   v3.0.0.2
  *               Final testing.
@@ -62,7 +66,7 @@ namespace LiquidLockbox
     {
         public override string Name { get { return "LiquidLockbox"; } }
         public override string Author { get { return "LiquidAtoR"; } }
-        public override Version Version { get { return new Version(3,0,0,2); } }
+        public override Version Version { get { return new Version(3,0,0,3); } }
 		public bool InventoryCheck = false;
 		private bool _init;
 		
@@ -142,19 +146,20 @@ namespace LiquidLockbox
         public override void Pulse()
         {
 		if (_init)
-            if (StyxWoW.Me.IsActuallyInCombat
-				|| Battlegrounds.IsInsideBattleground
-				|| StyxWoW.Me.HasAura(1784) // Check if we are Stealthed
-                || StyxWoW.Me.Mounted
-                || StyxWoW.Me.IsDead
-                || StyxWoW.Me.IsGhost
+            if (!SpellManager.HasSpell(1804) // Check if we know lockpicking at all.
+				|| StyxWoW.Me.HasAura(1784) // Are we stealthed?
+				|| StyxWoW.Me.IsActuallyInCombat // Are we in combat?
+				|| Battlegrounds.IsInsideBattleground // Are we in a Battleground?
+                || StyxWoW.Me.Mounted // Are we mounted?
+                || StyxWoW.Me.IsDead // Are we dead?
+                || StyxWoW.Me.IsGhost // Are we a ghost?
                 ) {
                 return;
             }
 
             if (InventoryCheck) { // Loot Event has Finished
             {
-				var lockpickSkill = StyxWoW.Me.Level*5;
+				var lockpickSkill = StyxWoW.Me.Level*5; // Your current lockpicking skill is your character level multiplied by five
                 foreach (WoWItem item in ObjectManager.GetObjectsOfType<WoWItem>()) 
                 {
 					foreach (Lockbox l in _lockBox)
@@ -178,18 +183,17 @@ namespace LiquidLockbox
 		private void pickLock(WoWItem item)
 		{	
 			Logging.Write(LogLevel.Normal, Colors.DarkRed, "[{0} {1}]: Lockpicking and Looting a {2} with ID {3}", this.Name, this.Version, item.Name, item.Guid);
-			if (SpellManager.HasSpell(1804))
             {
 					SpellManager.Cast(1804);
 					StyxWoW.SleepForLagDuration();
-					Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+					Lua.DoString("UseItemByName(\"" + item.Name + "\")"); // Pick lock
 					StyxWoW.SleepForLagDuration();
 					StyxWoW.SleepForLagDuration();
 						while (StyxWoW.Me.IsCasting)
-							Thread.Sleep(50);
-					Lua.DoString("UseItemByName(\"" + item.Name + "\")");
+							Thread.Sleep(250);
+					Lua.DoString("UseItemByName(\"" + item.Name + "\")"); // Open the box
 					StyxWoW.SleepForLagDuration();
-					Lua.DoString("RunMacroText(\"/click StaticPopup1Button1\");");
+					Lua.DoString("RunMacroText(\"/click StaticPopup1Button1\");"); // Confirm any BoP loot screen
 					StyxWoW.SleepForLagDuration();
 			}
 		}
