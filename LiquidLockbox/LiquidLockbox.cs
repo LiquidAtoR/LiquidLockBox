@@ -1,11 +1,14 @@
 ﻿/*
- * LiquidLockbox v3.0.0.3 by LiquidAtoR
+ * LiquidLockbox v3.0.0.4 by LiquidAtoR
  * 
  * This is a little addon to open lockboxes in the char's inventory.
  * The skill of his lockpicking is compared to the skill needed for the box.
  * There should be no event where it tries to open a lockbox without skillz.
  * I've completely overhauled the plugin to function like TidyBags.
  * It should not attempt to open anything while stealthed, mounted or in a BG.
+ *
+ * 2014/04/08   v3.0.0.4
+ *               Small change to adapt API changes
  *
  * 2013/29/06   v3.0.0.3
  *               Comments in the file to explain it's working.
@@ -66,14 +69,14 @@ namespace LiquidLockbox
     {
         public override string Name { get { return "LiquidLockbox"; } }
         public override string Author { get { return "LiquidAtoR"; } }
-        public override Version Version { get { return new Version(3,0,0,3); } }
+        public override Version Version { get { return new Version(3,0,0,4); } }
 		public bool InventoryCheck = false;
 		private bool _init;
 		
         public override void Initialize()
         {
             if (_init) return;
-            base.Initialize();
+            base.OnEnable();
 			Lua.DoString("SetCVar('AutoLootDefault','1')");
 			Lua.Events.AttachEvent("LOOT_CLOSED", LootFinished);
 			Lua.Events.AttachEvent("MAIL_CLOSED", MailboxFinished);
