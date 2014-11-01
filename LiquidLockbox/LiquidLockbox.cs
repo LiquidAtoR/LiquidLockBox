@@ -1,11 +1,14 @@
 ﻿/*
- * LiquidLockbox v3.0.0.4 by LiquidAtoR
+ * LiquidLockbox v3.0.0.5 by LiquidAtoR
  * 
  * This is a little addon to open lockboxes in the char's inventory.
  * The skill of his lockpicking is compared to the skill needed for the box.
  * There should be no event where it tries to open a lockbox without skillz.
  * I've completely overhauled the plugin to function like TidyBags.
  * It should not attempt to open anything while stealthed, mounted or in a BG.
+ *
+ * 2014/11/01   v3.0.0.5
+ *				Small change in init
  *
  * 2014/04/08   v3.0.0.4
  *               Small change to adapt API changes
@@ -69,20 +72,9 @@ namespace LiquidLockbox
     {
         public override string Name { get { return "LiquidLockbox"; } }
         public override string Author { get { return "LiquidAtoR"; } }
-        public override Version Version { get { return new Version(3,0,0,4); } }
+        public override Version Version { get { return new Version(3,0,0,5); } }
 		public bool InventoryCheck = false;
 		private bool _init;
-		
-        public override void Initialize()
-        {
-            if (_init) return;
-            base.OnEnable();
-			Lua.DoString("SetCVar('AutoLootDefault','1')");
-			Lua.Events.AttachEvent("LOOT_CLOSED", LootFinished);
-			Lua.Events.AttachEvent("MAIL_CLOSED", MailboxFinished);
-            Logging.Write(LogLevel.Normal, Colors.DarkRed, "LiquidLockbox 3.0 ready for use...");
-            _init = true;
-        }
 			
         private void LootFinished(object sender, LuaEventArgs args)
         {
@@ -148,6 +140,15 @@ namespace LiquidLockbox
 
         public override void Pulse()
         {
+            if (!_init) {
+				base.OnEnable();
+				Lua.DoString("SetCVar('AutoLootDefault','1')");
+				Lua.Events.AttachEvent("LOOT_CLOSED", LootFinished);
+				Lua.Events.AttachEvent("MAIL_CLOSED", MailboxFinished);
+				Logging.Write(LogLevel.Normal, Colors.DarkRed, "LiquidLockbox 3.0 ready for use...");
+				_init = true;
+			}
+		
 		if (_init)
             if (!SpellManager.HasSpell(1804) // Check if we know lockpicking at all.
 				|| StyxWoW.Me.HasAura(1784) // Are we stealthed?
